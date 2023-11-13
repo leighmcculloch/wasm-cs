@@ -1,50 +1,58 @@
-# wasm-custom-section
+# wasm-cs
 
-> Write a custom section in a Wasm module
+Read and write custom sections in WASM modules.
 
-## Install
+### Install
 
-```
-$ cargo install wasm-custom-section
-```
-
-## Usage
-
-### Add a new custom section
-
-```
-$ wasm-custom-section ./input.wasm add SECTION_NAME < FILE
+```console
+cargo install --locked wasm-cs
 ```
 
-Output file will be written at `FILE.out`.
+### Usage
 
-### List custom sections
+#### List custom sections
 
+```console
+$ wasm-cs file.wasm ls
+hello (6 bytes)
+test (47 bytes)
 ```
-$ wasm-custom-section ./input.wasm list
 
-Section `name` (9 bytes)
-Section `test` (3232 bytes)
+#### Read a custom section
+
+```console
+$ wasm-cs file.wasm read SECTION_NAME
+Length: 47 (0x2f) bytes
+0000:   54 68 65 20  71 75 69 63  6b 20 62 72  6f 77 6e 20   The quick brown
+0010:   66 6f 78 20  6a 75 6d 70  73 20 6f 76  65 72 20 74   fox jumps over t
+0020:   68 65 20 6c  61 7a 79 20  64 6f 67 2e  2e 2e 0a      he lazy dog....
 ```
 
-### Show a specific custom sections
-
+```console
+$ wasm-cs file.wasm read SECTION_NAME -f hex
+54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f672e2e2e0a
 ```
-$ wasm-custom-section ./input.wasm show SECTION_NAME
 
-Section `test` (3232 bytes):
-Length: 3232 (0xca0) bytes
-0000:   75 73 65 20  63 6c 61 70  3a 3a 7b 41  72 67 2c 20   use clap::{Arg,
-0010:   43 6f 6d 6d  61 6e 64 7d  3b 0a 75 73  65 20 70 72   Command};.use pr
-0020:   65 74 74 79  5f 68 65 78  3a 3a 73 69  6d 70 6c 65   etty_hex::simple
-0030:   5f 68 65 78  3b 0a 75 73  65 20 73 74  64 3a 3a 66   _hex;.use std::f
-0040:   73 3b 0a 75  73 65 20 73  74 64 3a 3a  69 6f 3b 0a   s;.use std::io;.
-0050:   75 73 65 20  73 74 64 3a  3a 69 6f 3a  3a 52 65 61   use std::io::Rea
-0060:   64 3b 0a 75  73 65 20 73  74 64 3a 3a  73 74 72 3b   d;.use std::str;
-0070:   0a 0a 74 79  70 65 20 42  6f 78 45 72  72 20 3d 20   ..type BoxErr =
-0080:   42 6f 78 3c  64 79 6e 20  73 74 64 3a  3a 65 72 72   Box<dyn std::err
-0090:   6f 72 3a 3a  45 72 72 6f  72 3e 3b 0a  0a 66 6e 20   or::Error>;..fn
-00a0:   6d 61 69 6e  28 29 20 2d  3e 20 52 65  73 75 6c 74   main() -> Result
-
-...
+```console
+$ wasm-cs file.wasm read SECTION_NAME -f base64
+VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZy4uLgo=
 ```
+
+```console
+$ wasm-cs file.wasm read SECTION_NAME -f binary
+The quick brown fox jumps over the lazy dog...
+```
+
+#### Write a custom section
+
+```console
+$ wasm-cs file.wasm write SECTION_NAME < FILE
+```
+
+#### Thanks
+
+wasm-cs is a fork of [wasm-custom-sections], by Sven Sauleau.
+
+[wasm-custom-sections]: https://docs.rs/wasm-custom-section
+
+License: MIT

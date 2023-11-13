@@ -1,100 +1,94 @@
-use clap::{Arg, Command};
-use pretty_hex::pretty_hex;
-use std::fs;
-use std::io;
-use std::io::Read;
-use std::str;
+//! Read and write custom sections in WASM modules.
+//!
+//! ## Install
+//!
+//! ```console
+//! cargo install --locked wasm-cs
+//! ```
+//!
+//! ## Usage
+//!
+//! ### List custom sections
+//!
+//! ```console
+//! $ wasm-cs file.wasm ls
+//! hello (6 bytes)
+//! test (47 bytes)
+//! ```
+//!
+//! ### Read a custom section
+//!
+//! ```console
+//! $ wasm-cs file.wasm read SECTION_NAME
+//! Length: 47 (0x2f) bytes
+//! 0000:   54 68 65 20  71 75 69 63  6b 20 62 72  6f 77 6e 20   The quick brown
+//! 0010:   66 6f 78 20  6a 75 6d 70  73 20 6f 76  65 72 20 74   fox jumps over t
+//! 0020:   68 65 20 6c  61 7a 79 20  64 6f 67 2e  2e 2e 0a      he lazy dog....
+//! ```
+//!
+//! ```console
+//! $ wasm-cs file.wasm read SECTION_NAME -f hex
+//! 54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f672e2e2e0a
+//! ```
+//!
+//! ```console
+//! $ wasm-cs file.wasm read SECTION_NAME -f base64
+//! VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZy4uLgo=
+//! ```
+//!
+//! ```console
+//! $ wasm-cs file.wasm read SECTION_NAME -f binary
+//! The quick brown fox jumps over the lazy dog...
+//! ```
+//!
+//! ### Write a custom section
+//!
+//! ```console
+//! $ wasm-cs file.wasm write SECTION_NAME < FILE
+//! ```
+//!
+//! ### Thanks
+//!
+//! wasm-cs is a fork of [wasm-custom-sections], by Sven Sauleau.
+//!
+//! [wasm-custom-sections]: https://docs.rs/wasm-custom-section
 
-type BoxErr = Box<dyn std::error::Error>;
+use clap::{Parser, Subcommand};
+use std::{error::Error, path::PathBuf};
 
-fn main() -> Result<(), BoxErr> {
-    let matches = Command::new(clap::crate_name!())
-        .arg(Arg::new("filename").takes_value(true).required(true))
-        .subcommand(
-            Command::new("add")
-                .about("Add a new custom section")
-                .arg(Arg::new("section-name").takes_value(true).required(true)),
-        )
-        .subcommand(Command::new("list").about("List custom sections"))
-        .subcommand(
-            Command::new("show")
-                .about("Show a specific custom section")
-                .arg(Arg::new("section-name").takes_value(true).required(true)),
-        )
-        .subcommand_required(true)
-        .get_matches();
+mod ls;
+mod read;
+mod write;
 
-    let filename = matches.value_of("filename").expect("no filename provided");
+/// Read and write custom sections in WASM modules.
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
+struct Root {
+    /// WASM file to read and write.
+    #[arg(required = true)]
+    wasm: PathBuf,
 
-    if let Some(matches) = matches.subcommand_matches("add") {
-        let section_name = matches
-            .value_of("section-name")
-            .expect("no section-name provided");
-
-        add_custom_section(filename, section_name)
-    } else if let Some(_matches) = matches.subcommand_matches("list") {
-        list_custom_sections(filename)
-    } else if let Some(matches) = matches.subcommand_matches("show") {
-        let section_name = matches
-            .value_of("section-name")
-            .expect("no section-name provided");
-
-        show_custom_sections(filename, section_name)
-    } else {
-        unreachable!("subcommand expected")
-    }
+    #[command(subcommand)]
+    cmd: Cmd,
 }
 
-fn list_custom_sections(filename: &str) -> Result<(), BoxErr> {
-    let bytes =
-        fs::read(filename).map_err(|err| format!("failed to read {}: {}", filename, err))?;
+#[derive(Subcommand, Debug)]
+enum Cmd {
+    Ls(ls::Cmd),
+    Read(read::Cmd),
+    Write(write::Cmd),
+}
 
-    let parser = wasmparser::Parser::new(0);
-
-    for payload in parser.parse_all(&bytes) {
-        match payload? {
-            wasmparser::Payload::CustomSection { name, data, .. } => {
-                println!("Section `{}` ({} bytes)", name, data.len());
-            }
-            _ => {}
+impl Root {
+    fn run(&self) -> Result<(), Box<dyn Error>> {
+        match &self.cmd {
+            Cmd::Ls(c) => c.run(&self.wasm),
+            Cmd::Read(c) => c.run(&self.wasm),
+            Cmd::Write(c) => c.run(&self.wasm),
         }
     }
-
-    Ok(())
 }
 
-fn show_custom_sections(filename: &str, section_name: &str) -> Result<(), BoxErr> {
-    let bytes =
-        fs::read(filename).map_err(|err| format!("failed to read {}: {}", filename, err))?;
-
-    let parser = wasmparser::Parser::new(0);
-
-    for payload in parser.parse_all(&bytes) {
-        match payload? {
-            wasmparser::Payload::CustomSection { name, data, .. } => {
-                if name == section_name {
-                    println!("Section `{}` ({} bytes):", name, data.len());
-                    println!("{}", pretty_hex(&data));
-                    return Ok(());
-                }
-            }
-            _ => {}
-        }
-    }
-
-    Err(format!("Section `{}` not found", section_name).into())
-}
-
-fn add_custom_section(filename: &str, section_name: &str) -> Result<(), BoxErr> {
-    let mut bytes =
-        fs::read(filename).map_err(|err| format!("failed to read {}: {}", filename, err))?;
-
-    let mut input_buffer = Vec::new();
-    io::stdin().read_to_end(&mut input_buffer)?;
-
-    wasm_gen::write_custom_section(&mut bytes, section_name, &input_buffer);
-
-    fs::write(format!("{}.out", filename), bytes)?;
-
-    Ok(())
+fn main() -> Result<(), Box<dyn Error>> {
+    Root::parse().run()
 }

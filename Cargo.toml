@@ -1,13 +1,23 @@
 [package]
-name = "wasm-custom-section"
-version = "0.1.1"
+name = "wasm-cs"
+version = "1.0.0"
 edition = "2021"
+rust-version = "1.73"
 license = "MIT"
-description = "Write a custom section in a Wasm module"
-authors = ["Sven Sauleau <sven@sauleau.com>"]
+homepage = "https://github.com/leighmcculloch/wasm-cs"
+repository = "https://github.com/leighmcculloch/wasm-cs"
+description = "Read and write custom sections in WASM modules."
+authors = [
+    # Author of wasm-custom-section: https://github.com/xtuc/wasm-custom-section.
+    "Sven Sauleau <sven@sauleau.com>",
+    # Author of modifications in this fork.
+    "Leigh McCulloch",
+]
+readme = "README.md"
 
 [dependencies]
-clap = { version = "3.1", features = ["cargo"] }
-wasm-gen = "0.1"
-wasmparser = "0.83"
-pretty-hex = "0.2.1"
+clap = { version = "4", features = ["derive"] }
+wasm-gen = { version = "0.1.4" }
+wasmparser = { version = "0.116" }
+pretty-hex = { version = "0.3.0" }
+base64 = { version = "0.21.5" }
